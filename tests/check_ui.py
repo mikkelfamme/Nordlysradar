@@ -38,7 +38,7 @@ def fake_weather():
         cloud_cover_high=[8]*len(values),visibility=[20000]*len(values),precipitation_probability=[0]*len(values)))
 
 def build_html():
-    modules=['lib/astro.js','lib/scoring.js','lib/data.js','lib/storage.js','lib/map.js','app.js']
+    modules=['lib/astro.js','lib/scoring.js','lib/data.js','lib/storage.js','lib/map.js','lib/interactive-map.js','lib/alerts.js','app.js']
     bundle='\n'.join(re.sub(r'^import\s+.+?;\s*$', '', re.sub(r'\bexport\s+(?=(?:async\s+function|const|let|function|class)\b)', '', (ROOT/m).read_text()),flags=re.M) for m in modules)
     icon_uri='data:image/svg+xml;base64,'+base64.b64encode((ROOT/'assets/aurora-icon.svg').read_bytes()).decode()
     bundle=bundle.replace('./assets/aurora-icon.svg',icon_uri)
@@ -78,11 +78,12 @@ def run():
     browser=p.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox'])
     for name,wide,height in [('mobile',390,844),('desktop',1500,960)]:
       ctx=browser.new_context(viewport={'width':wide,'height':height},device_scale_factor=1,accept_downloads=True)
+      ctx.route('**/tile.openstreetmap.org/**',lambda route:route.abort())
       page=ctx.new_page(); errors=[]
       page.on('pageerror',lambda e:errors.append(str(e)))
       page.set_content(html,wait_until='domcontentloaded')
       page.wait_for_function("document.querySelector('.gauge-center strong') && document.querySelector('.gauge-center strong').textContent !== '—'",timeout=15000)
-      page.screenshot(path=str(ROOT/f'tests/preview-{name}.png'),full_page=True)
+      page.screenshot(path=str(ROOT/f'tests/preview-{name}.png'),full_page=(name=='mobile'),timeout=12000)
       print(name,'score',page.locator('.gauge-center strong').inner_text(),'title',page.title())
       assert page.locator('.metric').count()==4
       nav='.mobile-nav' if name=='mobile' else '.side-nav'
@@ -93,8 +94,12 @@ def run():
       page.locator(f'{nav} [data-tab="sky"]').click()
       assert 'Måne & mørke' in page.inner_text('#main-content')
       page.locator(f'{nav} [data-tab="storms"]').click()
-      assert 'Nordlyszonen' in page.inner_text('#main-content')
-      page.screenshot(path=str(ROOT/f'tests/storms-{name}.png'),full_page=True)
+      assert 'Interaktivt nordlyskort' in page.inner_text('#main-content')
+      assert page.locator('#interactiveAuroraMap').count()==1
+      page.locator('[data-map-zoom="in"]').click()
+      page.locator('#interactiveAuroraMap').click(position={'x':120,'y':140})
+      assert 'NOAA' in page.locator('#map-point-info').inner_text() or 'modelleret' in page.locator('#map-point-info').inner_text()
+      page.screenshot(path=str(ROOT/f'tests/storms-{name}.png'),full_page=(name=='mobile'),timeout=12000)
       page.locator(f'{nav} [data-tab="places"]').click()
       page.fill('#locationQuery','Hornbæk')
       page.locator('#placeSearchForm button[type=submit]').click()
@@ -103,10 +108,14 @@ def run():
       assert 'Hornbæk' in page.locator('.location-button').inner_text()
       page.locator(f'{nav} [data-tab="settings"]').click()
       page.locator('label.choice-tile:has(input[value="camera"])').click()
+      assert page.locator('[data-generate-topic]').count()==1
+      page.locator('[data-generate-topic]').click()
+      assert page.locator('[data-copy-config]').count()==1
+      assert page.locator('[data-copy-widget-parameter]').count()==1
       assert page.locator('input[name=mode][value=camera]').is_checked()
       page.locator('[data-open-log]').first.click()
       page.fill('#logNote','Grønt nordlys mod nord i en test.')
-      page.locator('#logForm button[type=submit]').click()
+      page.evaluate('document.querySelector("#logForm button[type=submit]").click()')
       assert 'Grønt nordlys' in page.inner_text('#main-content')
       page.locator('[data-export]').click()
       assert page.locator('.observation-item').count() == 1

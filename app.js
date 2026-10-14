@@ -2,15 +2,18 @@ import {skyAt,moonPhaseName,moonGlyph,nextMoonEvents,darkHoursNext24} from './li
 import {conditionsFor,buildHours,groupStorms,verdict,explain,kpG,utc,clamp} from './lib/scoring.js';
 import {getSpace,getWeather,getHistory,geocode} from './lib/data.js';
 import {loadSettings,saveSettings,loadLog,saveLog,exportBackup,importBackup,isLocation} from './lib/storage.js';
-import {drawMap} from './lib/map.js';
+import {initAuroraMap} from './lib/interactive-map.js';
+import {nextAlert,recordAlert} from './lib/alerts.js';
 
 const state={
   settings:loadSettings(),observations:loadLog(),space:null,history:[],weather:null,
   loading:false,weatherError:'',spaceError:'',tab:'overview',selectedHour:null,
-  locationsWx:{},geocodeResults:[],geocodeBusy:false,toast:null,lastFetch:0,lastAlert:0
+  locationsWx:{},geocodeResults:[],geocodeBusy:false,toast:null,lastFetch:0,lastAlert:0,mapCamera:null,showAuroraOverlay:true
 };
 const TABS=[['overview','Overblik','home'],['forecast','Prognose','chart'],['sky','Måne & himmel','moon'],['storms','Solstorme','sun'],['places','Steder','pin'],['settings','Indstillinger','settings']];
 const ICONS={
+  map:'<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15m6-12v15"/>',
+  widget:'<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 11h8M12 7v8"/>',
   home:'<path d="M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V10Z"/>',
   chart:'<path d="M3 3v18h18"/><path d="m6 16 5-5 4 3 5-7"/>',
   moon:'<path d="M20.2 15A9 9 0 0 1 9 3.8 9 9 0 1 0 20.2 15Z"/>',
@@ -135,7 +138,8 @@ function overviewView(){
  <section class="panel side-insight">${cardTitle('Nat på vej',`Månefase`)}<div class="moon-small"><span class="moon-emoji">${moonGlyph(sky.moonPhase)}</span><div><strong>${moonPhaseName(sky.moonPhase)}</strong><span>${Math.round(sky.moonFraction*100)} % oplyst</span><small>${sky.moonAlt>0?'Månen er over horisonten':'Månen er under horisonten'}</small></div></div><div class="separator"></div>
  <div class="compact-stat"><span>Solhøjde nu</span><b>${padNum(sky.sunAlt,1)}°</b></div><div class="compact-stat"><span>Månehøjde nu</span><b>${padNum(sky.moonAlt,1)}°</b></div><button class="ghost-link" data-tab="sky">Læs om måne og mørke ${icon('arrow',16)}</button></section></div>
  ${bestWindow(hours)}
- <div class="overview-grid bottom-grid"><section class="panel"><div class="eyebrow-light">RUMVEJR LIGE NU</div><div class="space-quick"><div><small>Kp</small><strong>${c.kp==null?'—':padNum(c.kp,1)}</strong><span>${c.kp==null?'Afventer':kpG(c.kp)}</span></div><div><small>Bz (GSM)</small><strong>${windNum(state.space?.solar_wind?.bz,1)}</strong><span>nT</span></div><div><small>Solvind</small><strong>${windNum(state.space?.solar_wind?.speed,0)}</strong><span>km/s</span></div></div><p class="note-small">${esc(alert?shortAlert(alert):'Ingen nye geomagnetiske stormvarsler i den tilgængelige NOAA-feed.')}</p><button class="ghost-link" data-tab="storms">Udforsk solstorme ${icon('arrow',16)}</button></section>
+ <section class="panel feature-link-panel"><span class="feature-icon">${icon('bell',23)}</span><div><strong>Intelligente nordlysalarmer</strong><p>Få varsel om solstorme og gode observationsvinduer – også når appen er lukket, efter opsætning af push.</p></div><button class="btn-outline" data-tab="settings">Opsæt ${icon('arrow',15)}</button></section>
+ <div class="overview-grid bottom-grid"><section class="panel"><div class="eyebrow-light">RUMVEJR LIGE NU</div><div class="space-quick"><div><small>Kp</small><strong>${c.kp==null?'—':padNum(c.kp,1)}</strong><span>${c.kp==null?'Afventer':kpG(c.kp)}</span></div><div><small>Bz (GSM)</small><strong>${windNum(state.space?.solar_wind?.bz,1)}</strong><span>nT</span></div><div><small>Solvind</small><strong>${windNum(state.space?.solar_wind?.speed,0)}</strong><span>km/s</span></div></div><p class="note-small">${esc(alert?shortAlert(alert):'Ingen nye geomagnetiske stormvarsler i den tilgængelige NOAA-feed.')}</p><button class="ghost-link" data-tab="storms">Åbn interaktivt nordlyskort ${icon('arrow',16)}</button></section>
  <section class="panel"><div class="eyebrow-light">PERSONLIGT NORDLYSARKIV</div><div class="log-prompt">${icon('book',31)}<div><strong>Har du set nordlys?</strong><p>Gem din observation, så du kan se, hvilke forhold der gav det bedste resultat.</p></div></div><button class="btn-primary btn-block" data-open-log="1">${icon('plus',17)} Registrer observation</button></section></div>
  ${state.weatherError?`<div class="inline-warning">${icon('warning',17)} Vejrdata: ${esc(state.weatherError)}</div>`:''}
  `;
@@ -193,7 +197,8 @@ function stormsView(){
  const last=wind.time?since(wind.time):'Måling mangler';
  return `${pageHead('DET STARTER PÅ SOLEN','Solstorme & nordlys','Målinger fra NOAA Space Weather Prediction Center')}
  <div class="storm-grid"><section class="panel"><div class="eyebrow-light">GEOMAGNETISK AKTIVITET</div><div class="kp-big"><strong>${padNum(c.kp,1)}</strong><span>${c.kp==null?'Afventer NOAA':kpG(c.kp)}</span></div><p class="note-small">Planetarisk Kp-indeks · ${c.kpSource||'ingen aktuel måling'}. Skala 0–9. G1 begynder ved omtrent Kp 5.</p><div class="thin-divider"></div><div class="big-split"><div><small>Bz (GSM)</small><b>${windNum(wind.bz,1)} nT</b></div><div><small>Solvind</small><b>${windNum(wind.speed,0)} km/s</b></div></div><p class="note-small">${esc(last)} · Negativ Bz kan øge koblingen mellem solvinden og Jordens magnetfelt.</p></section>
- <section class="panel radar-panel">${cardTitle('Nordlyszonen','NOAA OVATION · 30–90 min')}<div class="map-wrap"><canvas id="polarMap" role="img" aria-label="Polarkort over NOAAs seneste forudsagte nordlyszone. Den hvide prik er din lokation."></canvas></div><div class="map-legend"><span><i></i> Nordlyszonen</span><span><i class="here-dot"></i> Din lokation</span></div><p class="note-small">Polarkort, ikke et vejkort. Nordlys kan under gode forhold ses fra stor afstand mod den nordlige horisont.</p>${!s.aurora?.forecast_time?emptyNotice('Nordlyskortet afventer en opdateret NOAA-prognose.'):s.aurora.points?.length===0?emptyNotice('Ingen tydelig aktiv nordlyszone i den seneste model.'):''}</section></div>
+ </div>
+ <section class="panel radar-panel live-map-card">${cardTitle('Interaktivt nordlyskort','NOAA OVATION · 30–90 minutter')}<div class="live-map-head"><div><span class="map-live-chip">${s.aurora?.forecast_time?'Prognose '+esc(day(utc(s.aurora.forecast_time))+' '+time(utc(s.aurora.forecast_time))):'Afventer NOAA'}</span></div><label class="map-toggle"><input type="checkbox" data-map-overlay ${state.showAuroraOverlay?'checked':''}> Vis nordlyszone</label></div><div class="interactive-map-container"><canvas id="interactiveAuroraMap" aria-label="Interaktivt nordlyskort. Træk for at flytte kortet, knib for at zoome, eller tryk på et sted for at undersøge intensiteten." tabindex="0"></canvas><div class="map-controls"><button type="button" data-map-zoom="in" title="Zoom ind" aria-label="Zoom ind">+</button><button type="button" data-map-zoom="out" title="Zoom ud" aria-label="Zoom ud">−</button><button type="button" data-map-reset="1" title="Centrer ved dig" aria-label="Centrer ved dig">${icon('gps',18)}</button></div><div class="map-osm">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a></div></div><div class="map-legend-gradient"><span>Lav modelintensitet</span><div></div><span>Høj modelintensitet</span></div><p id="map-point-info" class="map-point-info" aria-live="polite">Træk i kortet, zoom med +/−, og tryk på et sted for at se NOAAs beregnede aktivitet. Intensitet er ikke sandsynlighed for synligt nordlys.</p><p class="note-small">Din placering markeres med en hvid prik. Nordlys kan også ses mod den nordlige horisont uden at være direkte over dig. Kortet bruger OpenStreetMap og kræver internet.</p>${!s.aurora?.forecast_time?emptyNotice('Kortet afventer en NOAA-prognose.'):Math.abs(Date.now()-(utc(s.aurora.forecast_time)?.getTime()||0))>=2*3600000?emptyNotice('NOAA-prognosen er forældet; overlayet er skjult, indtil en ny måling er klar.'):s.aurora.points?.length===0?emptyNotice('Ingen aktiv nordlyszone i den seneste model.'):''}</section>
  <div class="section-gap"><span class="section-label">NOAA-VARSLER</span><h2 class="section-h2">Seneste rumvejrsmeddelelser</h2></div><section class="panel alerts-panel">${alerts.length?alerts.map(a=>{const message=(a.message||'').match(/(?:WATCH|ALERT|WARNING|CANCEL WATCH):[^\r\n]*/i)?.[0]||a.message?.split('\n')[0]||'Meddelelse';return `<div class="alert-item"><span class="alert-icon">${icon('sun',18)}</span><div><b>${esc(message.slice(0,175))}</b><small>${esc(a.id||'NOAA')} · ${esc(a.time?day(utc(a.time))+' '+time(utc(a.time)):'Ukendt')}</small></div></div>`;}).join(''):emptyNotice('Ingen meddelelser tilgængelige i NOAAs feed.')}</section>
  <div class="section-gap"><span class="section-label">HISTORISKE HÆNDELSER</span><h2 class="section-h2">Registrerede geomagnetiske storme</h2></div><section class="panel history-panel">${storms.length?storms.slice(0,24).map(st=>`<div class="history-item"><div class="storm-date"><strong>${day(utc(st.start))}</strong><small>Fra kl. ${time(utc(st.start))}</small></div><div class="storm-level">${esc(st.g)}<span>maks. Kp ${padNum(st.peak,1)}</span></div><div class="storm-length">${st.samples===1?'Én måleperiode':`${st.samples} måleperioder`}</div></div>`).join(''):emptyNotice('Ingen stormperioder i den tilgængelige historik. Historikken opbygges efter første NOAA-opdatering.')}
  <div class="disclaimer-strip">${icon('info',16)} Historik er observerede Kp-perioder (G1+), samlet til hændelser. Historikken går op til 90 dage tilbage, efterhånden som appen indsamler data.</div></section>`;
@@ -217,7 +222,20 @@ function settingsView(){
  return `${pageHead('PERSONLIG OPSÆTNING','Indstillinger','Tilpas varsler og beregninger til den måde, du leder efter nordlys på.')}
  <div class="settings-stack"><section class="panel settings-section">${cardTitle('Observationsmetode')}<p class="settings-help">Det blotte øje kræver stærkere lys end et kamera med lang eksponering.</p><div class="radio-tiles"><label class="choice-tile ${s.mode==='eye'?'chosen':''}"><input type="radio" name="mode" value="eye" ${checked(s.mode==='eye')}><span>${icon('eye',23)}</span><b>Med øjet</b><small>Konservativ vurdering</small></label><label class="choice-tile ${s.mode==='camera'?'chosen':''}"><input type="radio" name="mode" value="camera" ${checked(s.mode==='camera')}><span>${icon('camera',23)}</span><b>Med kamera</b><small>Svagt nordlys kan ses på fotos</small></label></div></section>
  <section class="panel settings-section">${cardTitle('Lysforurening')}<p class="settings-help">Vælg selv, hvor mørkt dit observationssted er. Det er ikke automatisk målt.</p><div class="radio-tiles three">${[['city','By','Bylys omkring dig'],['suburb','Forstad','Noget spredt lys'],['dark','Mørkt sted','Meget lidt lys']].map(([v,label,sub])=>`<label class="choice-tile ${s.light===v?'chosen':''}"><input type="radio" name="light" value="${v}" ${checked(s.light===v)}><span>${icon('spark',20)}</span><b>${label}</b><small>${sub}</small></label>`).join('')}</div></section>
- <section class="panel settings-section">${cardTitle('Nordlysalarmer')}<p class="settings-help">Vis en alarm i appen, når indekset overstiger din grænse. Beskeder uden for appen kræver en selvstændig push-server og er ikke en del af denne version.</p><div class="setting-row"><div><b>Alarmer i appen</b><span>Virker, mens appen er åben</span></div><label class="toggle"><input type="checkbox" name="alerts" ${checked(s.alerts)} /><i></i></label></div><div class="setting-row"><div><b>Opdater automatisk</b><span>Cirka hvert 5. minut, mens appen er åben</span></div><label class="toggle"><input type="checkbox" name="autoRefresh" ${checked(s.autoRefresh)} /><i></i></label></div><div class="range-box"><label for="alertThreshold">Alarmgrænse <strong>${s.alertThreshold}/100</strong></label><input type="range" id="alertThreshold" name="alertThreshold" min="20" max="90" step="5" value="${s.alertThreshold}" /><div class="range-label"><span>Følsom</span><span>Kun ved særligt gode forhold</span></div></div></section>
+ <section class="panel settings-section">${cardTitle('Intelligente nordlysalarmer')}<p class="settings-help">Alarmer vurderer samlet nordlysindeks, skydække og mørke. Du kan få besked om gode forhold lige nu, om et observationsvindue inden for seks timer eller om en kraftig geomagnetisk storm inden for to døgn.</p>
+ <div class="setting-row"><div><b>Aktivér nordlysalarmer</b><span>I appen straks; på iPhone i baggrunden efter push-opsætning</span></div><label class="toggle"><input type="checkbox" name="alerts" ${checked(s.alerts)}/><i></i></label></div>
+ <div class="setting-row"><div><b>Gode forhold lige nu</b><span>Kræver mørke, acceptabelt skydække og høj score</span></div><label class="toggle"><input type="checkbox" name="alertNow" ${checked(s.alertNow)}/><i></i></label></div>
+ <div class="setting-row"><div><b>Nordlys inden for seks timer</b><span>Tidligt varsel om et muligt observationsvindue</span></div><label class="toggle"><input type="checkbox" name="alertSoon" ${checked(s.alertSoon)}/><i></i></label></div>
+ <div class="setting-row"><div><b>Forvarsel om solstorm</b><span>Den valgte stormstyrke i den kommende 48-timers NOAA-prognose</span></div><label class="toggle"><input type="checkbox" name="alertStorm" ${checked(s.alertStorm)}/><i></i></label></div>
+ <div class="setting-row"><div><b>Opdater automatisk</b><span>Cirka hvert femte minut, mens appen er åben</span></div><label class="toggle"><input type="checkbox" name="autoRefresh" ${checked(s.autoRefresh)}/><i></i></label></div>
+ <div class="range-box"><label for="alertThreshold">Minimum observationsindeks <strong>${s.alertThreshold}/100</strong></label><input type="range" id="alertThreshold" name="alertThreshold" min="20" max="90" step="5" value="${s.alertThreshold}" /><div class="range-label"><span>Flere alarmer</span><span>Kun stærke muligheder</span></div></div>
+ <div class="range-box storm-range"><label for="alertStormKp">Solstormniveau for forvarsler <strong>${kpG(s.alertStormKp)} · Kp ${s.alertStormKp}+</strong></label><input type="range" id="alertStormKp" name="alertStormKp" min="5" max="9" step="1" value="${s.alertStormKp}" /><div class="range-label"><span>G1 (Kp 5)</span><span>G5 (Kp 9)</span></div></div>
+ <div class="setting-row"><div><b>Stilleperiode (valgfri)</b><span>Ingen push eller alarm i disse timer. Angiv begge tider.</span></div><div class="quiet-hours"><input type="time" name="quietStart" value="${esc(s.quietStart||'')}" aria-label="Stilleperiode starter"><span>til</span><input type="time" name="quietEnd" value="${esc(s.quietEnd||'')}" aria-label="Stilleperiode slutter"></div></div>
+ <div class="setup-separator"></div>
+ <h4 class="section-mini-title">Pushbeskeder, når appen er lukket</h4><p class="settings-help">Gratis med <a href="https://ntfy.sh/" target="_blank" rel="noopener noreferrer">ntfy til iPhone</a> og GitHub Actions. Vores privatlivsvenlige løsning kræver én hemmelig GitHub-indstilling. Din adresse og din alarmnøgle lægges ikke i de offentlige webfiler.</p>
+ <div class="setup-steps"><div><b>1</b><p>Installer <a href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank" rel="noopener noreferrer">ntfy på iPhone</a>. Opret en tilfældig personlig kanal her i appen.</p></div><div><b>2</b><p>Kopiér kanalnavnet, og tryk <b>Subscribe</b> i ntfy for at abonnere på præcis denne kanal.</p></div><div><b>3</b><p>Kopiér GitHub-hemmeligheden. Gå til repository → Settings → Secrets and variables → Actions → New repository secret. Navn: <code>NORDLYS_ALERT_CONFIG</code>. Indsæt den kopierede JSON som værdi.</p></div><div><b>4</b><p>Kør workflowet <b>Personlige nordlysalarmer</b> under Actions med <b>Send en test-push</b> markeret. Kontroller, at beskeden kommer. Fremover tjekkes cirka hvert 15. minut, men GitHub kan forsinke kørslerne.</p></div></div>
+ <div class="push-key-card"><small>DIN PRIVATE NTFY-KANAL</small><code>${s.pushTopic?esc(s.pushTopic):'Ingen kanal oprettet'}</code><div class="action-row"><button class="btn-outline" data-generate-topic="1">${icon('bell',16)} ${s.pushTopic?'Opret ny kanal':'Opret alarmkanal'}</button>${s.pushTopic?`<button class="btn-outline" data-copy-topic="1">${icon('save',16)} Kopiér kanal</button><button class="btn-primary" data-copy-config="1">${icon('download',16)} Kopiér GitHub-hemmelighed</button>`:''}</div><small class="push-disclaimer">Kanalnavnet er en hemmelig adgangsnøgle. Del det ikke. ntfy.sh er en ekstern tjeneste, og kanaler er ikke private konti. Ved nye indstillinger skal GitHub-hemmeligheden kopieres ind igen.</small></div></section>
+ <section class="panel settings-section">${cardTitle('iPhone-widget','Scriptable')}<p class="settings-help">En ægte hjemmeskærmswidget med observationsindeks, Kp, skyer og månebelysning. Den kræver gratisappen <a href="https://apps.apple.com/app/scriptable/id1405459188" target="_blank" rel="noopener noreferrer">Scriptable</a>, da iPhone ikke understøtter native widgets direkte fra GitHub Pages. Opdateringen styres af iOS.</p><div class="action-row"><a class="btn-outline" href="./widget/Nordlysradar.js" download="Nordlysradar.js">${icon('download',17)} Hent widget-script</a><button class="btn-primary" data-copy-widget-parameter="1">${icon('save',17)} Kopiér min widget-placering</button></div><div class="widget-setup"><b>Sådan aktiverer du den</b><p>Åbn Scriptable → opret scriptet <b>Nordlysradar</b> og indsæt indholdet fra filen. Tilføj en <b>Scriptable-widget</b> til hjemmeskærmen, vælg scriptet og indsæt den kopierede værdi som <b>Widget Parameter</b>.</p><small>Bemærk: Hvis dit GitHub Pages-site har en anden URL end standardadressen, skal <code>APP_URL</code> i widgetfilens første linjer rettes.</small></div></section>
  <section class="panel settings-section">${cardTitle('Dine data')}<p class="settings-help">Steder, indstillinger og dine egne observationer gemmes kun lokalt i denne browser. Brug backup, hvis du vil flytte dem til en anden telefon.</p><div class="action-row"><button class="btn-outline" data-export="1">${icon('download',17)} Eksporter backup</button><label class="btn-outline file-label">${icon('upload',17)} Importer backup<input type="file" id="importFile" accept="application/json,.json" hidden /></label></div></section>
  <section class="panel settings-section about-section">${cardTitle('Sådan fungerer scoren')}<p>Vores observationsindeks (0–100) er en vejledende model og <b>ikke en beregnet sandsynlighed i procent</b>. Det kombinerer:</p><div class="science-list"><div><b>Rumvejr</b><span>NOAA Kp og NOAAs nordlysoval tæt på nuværende tidspunkt</span></div><div><b>Vejr</b><span>Samlet skydække og sigtbarhed fra Open-Meteo</span></div><div><b>Astronomi</b><span>Solens højde, måneposition og månens lysstyrke</span></div><div><b>Lokalt</b><span>GPS-koordinater, observationsmetode og manuelt valgt lysforurening</span></div></div><p class="settings-help">Kp er globalt, og geografisk breddegrad er ikke det samme som geomagnetisk breddegrad. Prognosen er derfor vejledende; særligt fremtidsvurderinger er usikre.</p><div class="source-links"><a href="https://www.swpc.noaa.gov/products/aurora-30-minute-forecast" target="_blank" rel="noopener noreferrer">NOAA / SWPC ${icon('arrow',15)}</a><a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo ${icon('arrow',15)}</a></div></section>
  <div class="section-gap"><span class="section-label">DINE OPLEVELSER</span><h2 class="section-h2">Observationsdagbog</h2></div><button class="btn-primary" data-open-log="1">${icon('plus',17)} Registrer ny observation</button>
@@ -237,7 +255,7 @@ function render(){
  // For a continuous single-page interface, replacing the view keeps event wiring delegated.
  const y=window.scrollY;
  document.querySelector('#app').innerHTML=shell();
- if(state.tab==='storms') requestAnimationFrame(()=>drawMap(document.querySelector('#polarMap'),state.space?.aurora,loc()));
+ if(state.tab==='storms') requestAnimationFrame(()=>initAuroraMap(document.querySelector('#interactiveAuroraMap'),state.space?.aurora,loc(),{camera:state.mapCamera,overlay:state.showAuroraOverlay,onCameraChange:camera=>{state.mapCamera=camera;},onOverlayChange:active=>{state.showAuroraOverlay=active;}}));
  if(state.tab==='places') updatePlaceResults();
  requestAnimationFrame(()=>window.scrollTo({top:y,behavior:'instant'}));
 }
@@ -248,7 +266,7 @@ function setLocation(p){
  if(!isLocation(p))return;
  state.settings.location=p;
  if(!state.settings.places.some(x=>Math.abs(x.lat-p.lat)<.001 && Math.abs(x.lon-p.lon)<.001))state.settings.places.push(p);
- state.settings.places=state.settings.places.slice(-12);saveSettings(state.settings);state.weather=null;state.weatherError='';state.tab='overview';state.selectedHour=null;render();refreshWeather();
+ state.settings.places=state.settings.places.slice(-12);saveSettings(state.settings);state.weather=null;state.weatherError='';state.mapCamera=null;state.tab='overview';state.selectedHour=null;render();refreshWeather();
 }
 async function refreshWeather(){
  const requested={...loc()};
@@ -286,13 +304,14 @@ async function gps(){
  },()=>toast('GPS blev ikke tilladt. Du kan søge efter et sted i stedet.'),{enableHighAccuracy:false,timeout:12000,maximumAge:300000});
 }
 function checkAlert(){
- if(!state.settings.alerts)return;
- const c=current(),threshold=state.settings.alertThreshold;
- if(c.score==null||c.score<threshold||c.darkness<.60)return;
- const old=Number(localStorage.getItem('nordlysradar.lastAlert')||0);
- if(Date.now()-old<3*3600000)return;
- localStorage.setItem('nordlysradar.lastAlert',String(Date.now()));
- toast(`Nordlysradar: Indeks ${c.score}/100 ved ${loc().name}. Se mod nord!`);
+ if(!state.settings.alerts||!state.weather||!state.space?.kp?.length)return;
+ const key='nordlysradar.alertState.v1';
+ let last={};try{last=JSON.parse(localStorage.getItem(key)||'{}');}catch{}
+ const now=new Date();
+ const event=nextAlert(now,loc(),effSpace(),state.weather,{...state.settings,timezone:state.weather.timezone||'Europe/Copenhagen'},last);
+ if(!event)return;
+ localStorage.setItem(key,JSON.stringify(recordAlert(last,event,now)));
+ toast(`${event.title}: ${event.message}`);
 }
 function openLog(){const dialog=document.querySelector('#logDialog');if(!dialog)return;
  const d=new Date();const local=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
@@ -318,9 +337,37 @@ function setTab(tab){
  if(!TABS.some(([id])=>id===tab))return;
  state.tab=tab;state.selectedHour=null;window.scrollTo({top:0,behavior:'instant'});render();
 }
+
+function generateTopic(){
+ if(!window.crypto?.getRandomValues){toast('Din browser understøtter ikke sikre tilfældige nøgler.');return;}
+ if(state.settings.pushTopic&&!window.confirm('Den gamle ntfy-kanal stopper med at få nye pushbeskeder efter du opdaterer GitHub-secret. Opret en ny?'))return;
+ const bytes=new Uint8Array(22);window.crypto.getRandomValues(bytes);
+ state.settings.pushTopic='nordlys-'+Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+ saveSettings(state.settings);render();toast('Din private alarmkanal er oprettet.');
+}
+function githubAlertConfig(){
+ const s=state.settings; if(!s.pushTopic)return null;
+ return JSON.stringify({schema_version:1,location:{name:loc().name,lat:loc().lat,lon:loc().lon},
+  light:s.light,mode:s.mode,alerts:s.alerts,alertThreshold:Number(s.alertThreshold),
+  alertNow:s.alertNow!==false,alertSoon:s.alertSoon!==false,alertStorm:s.alertStorm!==false,alertStormKp:Number(s.alertStormKp),
+  quietStart:s.quietStart||'',quietEnd:s.quietEnd||'',
+  timezone:state.weather?.timezone||'Europe/Copenhagen',ntfyServer:'https://ntfy.sh/',ntfyTopic:s.pushTopic},null,2);
+}
+async function copyText(value,message){
+ try {await navigator.clipboard.writeText(value);toast(message);}
+ catch{
+  const input=document.createElement('textarea');input.value=value;input.setAttribute('readonly','');
+  input.style.position='fixed';input.style.opacity='0';document.body.appendChild(input);input.select();
+  const worked=document.execCommand('copy');input.remove();toast(worked?message:'Kopiering blev blokeret. Brug en HTTPS-forbindelse og prøv igen.');
+ }
+}
 document.addEventListener('click',async (event)=>{
  const btn=event.target.closest('button,[data-export],label.file-label');if(!btn)return;
  if(btn.dataset.tab){setTab(btn.dataset.tab);return;}
+ if(btn.dataset.generateTopic){generateTopic();return;}
+ if(btn.dataset.copyTopic){if(state.settings.pushTopic)await copyText(state.settings.pushTopic,'Alarmkanal kopieret. Abonnér på den i ntfy.');return;}
+ if(btn.dataset.copyConfig){const value=githubAlertConfig();if(value)await copyText(value,'JSON kopieret. Opret eller opdater NORDLYS_ALERT_CONFIG under GitHub Secrets.');return;}
+ if(btn.dataset.copyWidgetParameter){await copyText(`${loc().lat},${loc().lon},${loc().name.replaceAll(',',' ')},${state.settings.light},${state.settings.mode}`,'Widget-parameter er kopieret. Indsæt den i Scriptable-widgettens indstillinger.');return;}
  if(btn.dataset.refresh){refreshAll(true);return;}
  if(btn.dataset.gps){gps();return;}
  if(btn.dataset.hour){state.selectedHour=Number(btn.dataset.hour);state.tab='forecast';render();return;}
@@ -353,14 +400,17 @@ document.addEventListener('change',async event=>{
     state.weather=null;render();refreshWeather();toast('Backup er importeret.');
   }catch(e){toast('Backup kunne ikke indlæses: '+e.message);}return;
  }
- if(event.target.matches('input[name="mode"],input[name="light"],input[name="alerts"],input[name="autoRefresh"],input[name="alertThreshold"]'))updateSettings(event);
+ if(event.target.matches('input[name="mode"],input[name="light"],input[name="alerts"],input[name="alertNow"],input[name="alertSoon"],input[name="alertStorm"],input[name="autoRefresh"],input[name="alertThreshold"],input[name="alertStormKp"],input[name="quietStart"],input[name="quietEnd"]'))updateSettings(event);
 });
 document.addEventListener('input',event=>{
  if(event.target.name==='alertThreshold'){
   const label=document.querySelector('label[for="alertThreshold"] strong');if(label)label.textContent=event.target.value+'/100';
  }
+ if(event.target.name==='alertStormKp'){
+  const label=document.querySelector('label[for="alertStormKp"] strong');if(label)label.textContent=kpG(Number(event.target.value))+' · Kp '+event.target.value+'+';
+ }
 });
-window.addEventListener('resize',()=>{if(state.tab==='storms')drawMap(document.querySelector('#polarMap'),state.space?.aurora,loc());});
+
 window.addEventListener('focus',()=>{if(state.settings.autoRefresh&&Date.now()-state.lastFetch>5*60000)refreshAll();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.settings.autoRefresh&&Date.now()-state.lastFetch>5*60000)refreshAll();});
 setInterval(()=>{if(!document.hidden&&state.settings.autoRefresh&&Date.now()-state.lastFetch>=5*60000)refreshAll();},60000);

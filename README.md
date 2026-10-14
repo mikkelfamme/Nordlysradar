@@ -1,10 +1,12 @@
-# Nordlysradar · V1.0
+# Nordlysradar · V1.1
 
 En dansk, mobilvenlig Progressive Web App (PWA) til personligt nordlysvarsel. Appen kombinerer officielle målinger fra **NOAA Space Weather Prediction Center** med skyer fra **Open-Meteo**, månelys, mørke og din placering.
 
-Bygget til en simpel GitHub Pages-installation – ingen database, API-nøgler, betalte services eller byggeproces er nødvendig.
+Bygget til en enkel GitHub Pages-installation – ingen database eller betalt service er nødvendig for appen. Baggrundsalarmer kræver en separat GitHub Actions-secret og gratisappen ntfy; en rigtig iPhone-widget kræver gratisappen Scriptable.
 
-## Hvad kan V1?
+## Hvad kan V1.1?
+
+**NYT:** [Læs vejledningen til V1.1 og opdatering af eksisterende app](./OPDATERING-V1.1.md). Brug ZIP-filen med `-OPDATERING` i navnet til dit eksisterende repository – den beskytter NOAA-historikken. `-KOMPLET` er kun til en helt ny installation.
 
 - **Overblik:** observationsindeks (0–100), status, Kp, skydække, månebelysning og nattens bedste tidspunkt.
 - **Op til 72-timers prognose:** time for time, med tydelig adskillelse af observeret, estimeret og forudsagt Kp, og forsigtighed over for usikre langtidsprognoser.
@@ -13,6 +15,9 @@ Bygget til en simpel GitHub Pages-installation – ingen database, API-nøgler, 
 - **Steder:** GPS, søgning efter byer og steder og sammenligning af gemte placeringer.
 - **Indstillinger:** kamera/øje, manuel lysforurening, personligt alarmniveau, automatisk opdatering.
 - **Observationer:** egen observationslog gemt lokalt, eksport/import af backup.
+- **Interaktivt nordlyskort (NYT):** geografisk kort, NOAA-farvelag, zoom/pan, klik på modelpunkter, aktuel lokation og ON/OFF-overlay.
+- **Personlige push-alarmer (NYT):** vurderer aktivitet, mørke, skyer, stormprognoser og brugerens scoregrænse. Planlagt baggrundskontrol cirka hvert 15. minut via GitHub Actions og ntfy. Der er en særlig test-push.
+- **Ægte iPhone-widget (NYT):** separat Scriptable-script med live Kp, måne, skyer og observationsindeks for dine koordinater.
 - **PWA:** ikon på iPhone-/Android-hjemmeskærmen, offline brugerflade (prognoser kræver forbindelse).
 
 **OBS:** Indekset er en *heuristisk observationsscore*, ikke en statistisk sandsynlighed i procent. Månen og skydækket kan begrænse eller helt skjule nordlys. Høj Kp garanterer ikke lokalt nordlys, særligt ikke i Danmark. Kp er globalt; appens latitudeffekt er en forenkling. Et længerevarende observationsindeks er betydeligt mere usikkert end korttidsprognoserne.
@@ -21,7 +26,7 @@ Bygget til en simpel GitHub Pages-installation – ingen database, API-nøgler, 
 
 ### A. Opret dit repository
 
-1. Pak `Nordlysradar-v1.zip` ud, så du har en mappe med `index.html`, `app.js`, `lib/`, `assets/`, `data/` og `.github/workflows/publish.yml`.
+1. Pak `Nordlysradar-v1.1-KOMPLET.zip` ud, så du har en mappe med `index.html`, `app.js`, `lib/`, `assets/`, `data/`, `widget/` og `.github/workflows/`.
 2. Gå til GitHub og opret et nyt repository med navnet **`nordlysradar`** (forventet bruger: `mikkelfamme`).
 3. Vælg **Public**, hvis du bruger gratis GitHub Pages. Webappen får en offentlig URL. Dine lokale indstillinger og observationer uploades ikke til GitHub.
 4. Læg **indholdet** af mappen – ikke zip-filen – i repositoryets rod. **Vigtigt:** Få den skjulte mappe `.github/workflows/` med, ellers opdateres nordlysdata ikke automatisk.
@@ -46,7 +51,7 @@ GitHub-repositoryet skal være oprettet på forhånd. Hvis Git beder om login, s
 4. Vælg **Run workflow → main → Run workflow**. Vent på, at *build* og *deploy* bliver grønne.
 5. Åbn `https://mikkelfamme.github.io/nordlysradar/`.
 
-Herefter kører GitHub Actions normalt hver halve time (kl. `xx:07` og `xx:37` UTC), henter NOAA-data og udgiver en opdateret side. Kun nye eller ændrede Kp-historikpunkter skrives tilbage til repositoryet; de hyppige live-snapshots medfører ikke unødvendige Git-commits. GitHubs planlagte workflows kan blive forsinkede eller stoppet ved længerevarende repo-inaktivitet. Se **Actions** ved manglende opdateringer. Ved fejl i datakilderne beholder appen seneste snapshot, og data bliver automatisk markeret som forældede.
+Data-publiceringsworkflowet kører normalt hver halve time (kl. `xx:07` og `xx:37` UTC), henter NOAA-data og udgiver en opdateret side. Kun nye eller ændrede Kp-historikpunkter skrives tilbage til repositoryet; de hyppige live-snapshots medfører ikke unødvendige Git-commits. GitHubs planlagte workflows kan blive forsinkede eller stoppet ved længerevarende repo-inaktivitet. Se **Actions** ved manglende opdateringer. Ved fejl i datakilderne beholder appen seneste snapshot, og data bliver automatisk markeret som forældede.
 
 **Vigtigt:** Historik bliver opbygget fra de observerede Kp-data, NOAA aktuelt tilbyder, og efterfølgende indsamlede målinger. Appen indeholder ingen fabrikeret historik fra tidligere år. Det kan tage lidt tid efter første workflowkørsel, før alle visninger har data.
 
@@ -82,16 +87,18 @@ Appen tjekker data cirka hvert femte minut, mens den er åben. NOAA-snapshot udg
 
 Denne beregning er foreløbig; tærsklerne kan justeres, hvis brugerens observationer giver grundlag for bedre kalibrering.
 
-## Begrænsninger i V1
+## Begrænsninger i V1.1
 
-- **Ikke push i baggrunden.** Appens tærskelalarmer vises i selve appen, mens den er åben. For push, når appen er lukket, kræves en separat backend/push-tjeneste med VAPID og abonnementer.
-- **Ingen native iOS-widget.** PWA'en har appikon og hjemmeskærmsoplevelse, men kan ikke installere en ægte iOS-widget uden en separat native løsning.
+- **Push kræver opsætning.** Baggrundsalarmer er bygget via GitHub Actions + ntfy, men du skal konfigurere den private kanal og GitHub-secret. GitHub kan forsinke planlagte kontroller; der er ingen realtidsgaranti.
+- **Widget via Scriptable.** En native iPhone-widget leveres som et Scriptable-script, der kræver installation og konfiguration i Scriptable. PWA'en kan ikke installere widgetten direkte. iOS bestemmer dens opdateringshyppighed.
 - **Ingen automatisk lysforureningsmåling.** Vælg selv By, Forstad eller Mørkt sted. Sammenligning af steder bruger samme manuelle indstilling.
 - **Ikke en verificeret aurora-probabilitetsmodel.** Kun et observationsindeks med kendte usikkerheder.
 - **Ikke fuld 90-dages historik på dag 1.** Arkivet opbygges gradvist. Flerdøgnsprognosen viser maksimalt 72 timer; ved kortere NOAA-prognosehorisont markeres de sidste timer som ukendte.
 - **GitHub Pages er offentligt tilgængeligt på sin URL.** Lokale brugerdata bliver på enheden.
 
 ## Privatliv
+
+For at aktivere baggrundsalarmer bliver din valgte placering og din tilfældige, private ntfy-kanal lagret som **GitHub Actions-repository-secret** (du indsætter den selv), og beskeder sendes via **ntfy.sh**. Disse værdier findes ikke i webappens offentlige filer. Et ntfy-topic på gratis-tjenesten er ikke en adgangskontrolleret privat postkasse. Hold kanalen hemmelig. Backup af dine browserindstillinger indeholder kanalnavnet.
 
 - GPS-pladsvalg er frivilligt. Det bruges lokalt i appen og koordinater sendes til Open-Meteo for vejrdata.
 - Stedsøgninger sendes til Open-Meteo Geocoding API.
@@ -125,3 +132,6 @@ python3 -m http.server 8080
 - [Open-Meteo Forecast API](https://open-meteo.com/en/docs) (CC BY 4.0 attribution)
 - [SunCalc](https://github.com/mourner/suncalc) (BSD-2-Clause; astronomiske algoritmer er tilpasset, fuld licens i `LICENSE-SUNCALC.txt`)
 - [GitHub Pages custom workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
+- [ntfy push API](https://docs.ntfy.sh/publish/)
+- [Scriptable ListWidget](https://docs.scriptable.app/listwidget/)
+- [OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/)

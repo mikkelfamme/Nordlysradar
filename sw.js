@@ -1,7 +1,7 @@
 /* Offline shell caching. Forecast and API data are ALWAYS network-first; stale data
    may only be shown with an explicit freshness warning in the UI. */
-const CACHE='nordlysradar-shell-v1';
-const SHELL=['./','./index.html','./styles.css','./app.js','./lib/astro.js','./lib/scoring.js','./lib/data.js','./lib/storage.js','./lib/map.js','./assets/icon-192.png','./assets/icon-512.png','./assets/aurora-icon.svg','./manifest.webmanifest'];
+const CACHE='nordlysradar-shell-v1-1';
+const SHELL=['./','./index.html','./styles.css','./app.js','./lib/astro.js','./lib/scoring.js','./lib/data.js','./lib/storage.js','./lib/map.js','./lib/interactive-map.js','./lib/alerts.js','./assets/icon-192.png','./assets/icon-512.png','./assets/aurora-icon.svg','./manifest.webmanifest'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));
 });

@@ -24,3 +24,56 @@
 @media(max-width:700px){.topbar-actions .live-indicator{display:none}.topbar{gap:8px}.topbar .location-button{padding:8px 11px;max-width:165px;overflow:hidden}.topbar .location-button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topbar .location-button svg:last-child{display:none}.main-content{padding:23px 16px 30px}.page-head{margin-bottom:21px;align-items:flex-start}.page-head h1{font-size:29px}.page-head p{font-size:12px}.head-cta{display:none}.hero-inner{padding:26px 22px 21px;min-height:235px;gap:0}.hero-copy{max-width:64%}.hero-eyebrow{font-size:9px;letter-spacing:.12em}.hero-copy h2{font-size:27px}.hero-copy p{font-size:12px;margin-bottom:13px}.gauge{width:124px;height:124px;align-self:center;margin-left:-10px}.gauge-center strong{font-size:43px}.gauge-center span{font-size:9px}.hero-bottom{padding:10px 15px;gap:4px;font-size:9px}.hero-actions{gap:6px}.hero-time{font-size:10px}.pill{padding:4px 8px;font-size:10px}.section-gap{margin:30px 0 14px}.conditions-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric{padding:14px}.metric-top{font-size:11px}.metric strong{font-size:23px}.overview-grid,.bottom-grid,.moon-overview,.storm-grid,.forecast-stat-grid{grid-template-columns:1fr}.overview-grid{margin-top:12px;gap:12px}.panel{padding:18px}.best-window{padding:14px;gap:11px}.best-window strong{font-size:13px}.best-window p{font-size:10px}.best-icon{width:42px;height:42px}.moon-small{justify-content:center;gap:25px}.moon-emoji{font-size:60px}.forecast-panel{padding:18px}.hour-detail{flex-direction:column;align-items:stretch;padding:16px}.hour-detail-metrics{width:100%;grid-template-columns:repeat(4,1fr)}.hour-detail-metrics span{padding-left:8px}.hour-detail-metrics b{font-size:18px}.forecast-stat-grid{gap:10px}.forecast-stat{min-height:120px}.moon-main{justify-content:center;gap:12px}.moon-disc-wrap{width:145px;height:150px}.moon-glyph{font-size:120px}.moon-copy h2{font-size:19px}.moon-calendar{grid-template-columns:repeat(4,1fr);gap:0}.moon-day{padding:12px 0}.moon-day:nth-child(4){border-right:0}.moon-day:nth-child(-n+4){border-bottom:1px solid #2b4b56}.moon-facts{padding-bottom:14px}.moon-overview{gap:12px}.storm-grid{gap:12px}.kp-big strong{font-size:69px}.storm-length{font-size:10px}.alert-item b{font-size:11px}.history-item{grid-template-columns:1.2fr .8fr;gap:8px}.storm-length{display:none}.settings-section{padding:18px}.radio-tiles.three{grid-template-columns:repeat(3,1fr)}.choice-tile{padding:11px 9px}.choice-tile small{font-size:9px}.choice-tile b{font-size:12px}.search-row .btn-primary{padding:9px 12px}.footer{margin:0 16px}.mobile-nav .nav-item{font-size:9px}.mobile-nav .nav-item span{font-size:8.5px}}
 @media(max-width:390px){.topbar{padding:0 12px}.mobile-brand b{font-size:10px}.main-content{padding:20px 12px 30px}.hero-inner{padding:24px 13px 20px}.hero-copy h2{font-size:25px}.hero-copy p{font-size:11px}.gauge{height:112px;width:112px;margin-left:-7px}.gauge-center strong{font-size:36px}.metric strong{font-size:22px}.moon-disc-wrap{width:122px}.moon-glyph{font-size:103px}.moon-copy h2{font-size:18px}.giant-fraction{font-size:44px}.place-card{padding:12px}.place-icon{padding:8px}.place-stats{gap:7px}.location-button span{max-width:82px}.radio-tiles{grid-template-columns:1fr 1fr}.radio-tiles.three{grid-template-columns:1fr}.choice-tile{padding:13px}.forecast-row{grid-template-columns:1.4fr .7fr .75fr 40px;font-size:11px}.forecast-row small{font-size:9px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.aurora-band{animation:none}.icon-button.spinning svg{animation:none}}
+
+/* Nordlysradar V1.1 — intelligent alarms, Scriptable widgets, interactive map */
+.feature-link-panel{display:flex;align-items:center;gap:18px;margin-top:15px;padding:18px 21px;background:linear-gradient(115deg,#14393d,#102f3c);border-color:#326c64}
+.feature-link-panel .feature-icon{width:43px;height:43px;border-radius:12px;display:grid;place-items:center;flex:none;color:#94f5c5;background:#1f5652}
+.feature-link-panel>div{min-width:0;flex:1}
+.feature-link-panel strong{display:block;font-size:13px}
+.feature-link-panel p{font-size:11px;line-height:1.6;color:#a4c8c9;margin:4px 0 0}
+.feature-link-panel button{white-space:nowrap;flex:none}
+.live-map-card{margin-top:16px;padding:23px}
+.live-map-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin:0 0 12px}
+.map-live-chip{display:inline-block;border:1px solid #365766;background:#143243;padding:7px 11px;border-radius:99px;color:#a2c7d0;font-size:11px}
+.map-toggle{display:flex;align-items:center;gap:8px;font-size:11px;color:#c7e6e3;cursor:pointer}
+.map-toggle input{accent-color:#55d89d;height:16px;width:16px}
+.interactive-map-container{height:460px;position:relative;overflow:hidden;background:#123747;border:1px solid #37616b;border-radius:14px;isolation:isolate}
+.interactive-map-container canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab;outline-offset:-3px}
+.interactive-map-container canvas:active{cursor:grabbing}
+.interactive-map-container canvas:focus-visible{outline:2px solid #9ef3c8}
+.map-controls{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:5px;z-index:5}
+.map-controls button{width:37px;height:37px;display:grid;place-items:center;border-radius:9px;font-size:23px;font-weight:500;color:#e5fff4;background:#103a49dd;border:1px solid #57847c;cursor:pointer;backdrop-filter:blur(7px)}
+.map-controls button:hover,.map-controls button:focus-visible{background:#286a66}
+.map-controls svg{width:18px;height:18px}
+.map-osm{position:absolute;bottom:0;right:0;z-index:4;background:#10303ad9;color:#b9d6d9;font-size:9px;padding:5px 7px;border-radius:6px 0 0 0}
+.map-osm a{color:#b9efda;text-decoration:underline}
+.map-legend-gradient{display:flex;align-items:center;gap:12px;color:#91b4bd;font-size:10px;margin:17px 3px 9px}
+.map-legend-gradient div{width:205px;height:7px;border-radius:99px;background:linear-gradient(90deg,#25c3aa 0%,#57f09d 42%,#d1e779 75%,#fb82ac 100%)}
+.map-point-info{font-size:12px;line-height:1.7;background:#0e2c3a;border:1px solid #284a55;color:#c1e0dd;border-radius:9px;padding:12px 14px;margin:10px 0 12px}
+.live-map-card>.note-small{text-align:left;font-size:11px}
+.setup-separator{height:1px;background:#2a4956;margin:22px 0}
+.section-mini-title{font-size:14px;margin:0 0 9px;color:#d7f9e7}
+.settings-help a,.setup-steps a{color:#95eec5;text-decoration:underline}
+.setup-steps{display:grid;gap:12px;margin:18px 0 17px}
+.setup-steps>div{display:flex;gap:12px;align-items:flex-start;background:#102f3d;border:1px solid #294c59;border-radius:11px;padding:12px}
+.setup-steps b:first-child{display:grid;place-items:center;background:#225a4b;width:27px;height:27px;border-radius:50%;flex:none;color:#c9ffe2;font-size:12px}
+.setup-steps p{line-height:1.6;font-size:11px;color:#bcd3db;margin:1px 0 0}
+.setup-steps p b{font-weight:750;color:#e3f6f0}
+.push-key-card{border:1px solid #3b7c6d;background:linear-gradient(135deg,#153b43,#11322e);border-radius:13px;padding:17px}
+.push-key-card>small:first-child{color:#9ae0bb;font-weight:750;letter-spacing:.10em;font-size:10px;display:block}
+.push-key-card>code{margin:10px 0 15px;display:block;overflow-wrap:anywhere;color:#e1fff0;font-size:12px}
+.push-disclaimer{display:block;color:#91b4bd;line-height:1.65;font-size:10px;margin-top:15px}
+.push-key-card .btn-outline,.push-key-card .btn-primary{font-size:11px;padding:11px 13px}
+.quiet-hours{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0}
+.quiet-hours input{background:#0b2635;color:#def7e7;border-radius:8px;border:1px solid #376071;padding:7px;width:108px;min-height:35px;color-scheme:dark}
+.quiet-hours span{color:#9cbdc1}
+.widget-setup{border-radius:11px;background:#112d3a;border:1px solid #2f5361;margin-top:18px;padding:16px}
+.widget-setup b{font-size:12px;color:#d5f9e6}
+.widget-setup p{line-height:1.65;font-size:11px;color:#abc8d2;margin:7px 0}
+.widget-setup small{font-size:10px;color:#8faab7;line-height:1.5}
+.widget-setup code,.setup-steps code{font-size:10px;color:#d6ffde;background:#17423d;padding:2px 5px;border-radius:5px;overflow-wrap:anywhere}
+.action-row a.btn-outline{display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+@media(min-width:1200px){.live-map-card{max-width:none}.interactive-map-container{height:520px}}
+@media(max-width:700px){.feature-link-panel{align-items:flex-start;gap:10px;padding:14px;flex-wrap:wrap}.feature-link-panel>div{flex:1 1 calc(100% - 60px)}.feature-link-panel button{margin-left:53px}.interactive-map-container{height:390px}.live-map-card{padding:15px}.map-live-chip{font-size:10px}.map-legend-gradient{gap:7px;font-size:9px}.map-legend-gradient div{width:88px}.quiet-hours input{width:96px}.setup-steps p{font-size:11px}.push-key-card .action-row{gap:8px}.push-key-card .action-row button{flex-grow:1;justify-content:center}}
+
+.storm-grid:has(>section:only-child){grid-template-columns:1fr}
