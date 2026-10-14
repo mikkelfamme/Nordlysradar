@@ -1,0 +1,42 @@
+name: Personlige nordlysalarmer
+on:
+  schedule:
+    # GitHub kan forsinke tidsplanen. 15 minutter er målfrekvens, ikke garanti.
+    - cron: '4,19,34,49 * * * *'
+  workflow_dispatch:
+    inputs:
+      test_notification:
+        description: Send en test-push til min iPhone (uden krav om nordlys)
+        required: false
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: nordlysradar-alerts
+  cancel-in-progress: false
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      NORDLYS_ALERT_CONFIG: ${{ secrets.NORDLYS_ALERT_CONFIG }}
+      SEND_TEST: ${{ inputs.test_notification || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Tjek NOAA, skyer, mørke og personligt varsel
+        run: node scripts/check_alerts.mjs
+      - name: Gem kun afsendelsestidspunkter (ingen placering eller topic)
+        run: |
+          if [ ! -f data/alert-state.json ]; then exit 0; fi
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add data/alert-state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "state: nordlysalarm sendt"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
