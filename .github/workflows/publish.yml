@@ -1,0 +1,61 @@
+name: Opdater og udgiv Nordlysradar
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nordlysradar-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    permissions:
+      contents: write
+      pages: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Hent NOAA-data og vedligehold historik
+        run: python scripts/update_space_weather.py
+        continue-on-error: true
+      - name: Gem nye Kp-observationer i repository
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add data/history.json
+          if ! git diff --cached --quiet; then
+            git commit -m "data: opdater nordlysradar"
+            git push
+          fi
+      - name: Saml statisk app
+        run: |
+          mkdir -p _site
+          cp index.html styles.css app.js manifest.webmanifest sw.js .nojekyll LICENSE-SUNCALC.txt _site/
+          cp -r assets lib data widget _site/
+      - name: Konfigurer GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload hjemmeside
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./_site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Udgiv
+        id: deployment
+        uses: actions/deploy-pages@v4
